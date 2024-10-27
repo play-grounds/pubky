@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Z32 Encoder</title>
+  <script type="module" src="https://unpkg.com/htm@3.0.4/preact/standalone.module.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #e0eafc, #cfdef3);
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0 20px;
+    }
+    .container {
+      text-align: center;
+      padding: 40px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 700px; /* Increased max width */
+      margin: 20px;
+      transition: all 0.3s ease;
+    }
+    .container:hover {
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+      transform: translateY(-2px);
+    }
+    h2 {
+      color: #007bff;
+      font-size: 2em;
+      margin-bottom: 20px;
+    }
+    input {
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      width: 100%;
+      max-width: 600px; /* Increased input width */
+      margin: 10px 0;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus {
+      border-color: #007bff;
+    }
+    button {
+      padding: 14px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      width: 100%;
+      max-width: 200px;
+      margin-top: 15px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .output {
+      margin-top: 20px;
+      font-size: 1.1em;
+      color: #555;
+      word-break: break-all;
+    }
+    @media (max-width: 800px) {
+      .container {
+        max-width: 90%;
+      }
+      h2 {
+        font-size: 1.5em;
+      }
+      button {
+        padding: 12px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { html, render, useState } from 'https://unpkg.com/htm@3.0.4/preact/standalone.module.js';
+
+    const z32Alphabet = 'ybndrfg8ejkmcpqxot1uwisza345h769';
+    
+    function hexToZ32(hex) {
+      const bits = hex.match(/.{1,4}/g).map(byte => parseInt(byte, 16).toString(2).padStart(16, '0')).join('');
+      const chunks = bits.match(/.{1,5}/g);
+      return chunks.map(chunk => z32Alphabet[parseInt(chunk.padEnd(5, '0'), 2)]).join('');
+    }
+
+    const App = () => {
+      const [hexKey, setHexKey] = useState('');
+      const [z32Id, setZ32Id] = useState('');
+
+      const handleEncode = () => {
+        if (hexKey.length === 64 && /^[a-fA-F0-9]+$/.test(hexKey)) {
+          setZ32Id(hexToZ32(hexKey));
+        } else {
+          alert('Please enter a valid 64-character hex key.');
+        }
+      };
+
+      return html`
+        <div class="container">
+          <h2>Z32 Encoder</h2>
+          <input
+            type="text"
+            placeholder="Enter 64-char hex key"
+            value=${hexKey}
+            onInput=${e => setHexKey(e.target.value)}
+          />
+          <button onClick=${handleEncode}>Encode to Z32</button>
+          ${z32Id && html`<div class="output">Z32 Identifier: ${z32Id}</div>`}
+        </div>
+      `;
+    };
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>
