@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pubky Encoder</title>
+    <script
+      type="module"
+      src="https://unpkg.com/htm@3.0.4/preact/standalone.module.js"
+    ></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, #e0eafc, #cfdef3);
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0 20px;
+      }
+      .container {
+        text-align: center;
+        padding: 40px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        width: 100%;
+        max-width: 700px; /* Increased max width */
+        margin: 20px;
+        transition: all 0.3s ease;
+      }
+      .container:hover {
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+        transform: translateY(-2px);
+      }
+      h2 {
+        color: #007bff;
+        font-size: 2em;
+        margin-bottom: 20px;
+      }
+      input {
+        padding: 14px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        width: 100%;
+        max-width: 600px; /* Increased input width */
+        margin: 10px 0;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      input:focus {
+        border-color: #007bff;
+      }
+      button {
+        padding: 14px 24px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        width: 100%;
+        max-width: 200px;
+        margin-top: 15px;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      .output {
+        margin-top: 20px;
+        font-size: 1.1em;
+        color: #555;
+        word-break: break-all;
+      }
+      @media (max-width: 800px) {
+        .container {
+          max-width: 90%;
+        }
+        h2 {
+          font-size: 1.5em;
+        }
+        button {
+          padding: 12px 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      import {
+        html,
+        render,
+        useState
+      } from 'https://unpkg.com/htm@3.0.4/preact/standalone.module.js'
+
+      const App = () => {
+        const [pubkey, setPubkey] = useState(
+          'eudadtaqt6jh56458sxaqtig9c436xod431jz78uaq9okkt6ch5o'
+        )
+        const [binaryData, setBinaryData] = useState(null)
+        const [decodedData, setDecodedData] = useState(null)
+        const [error, setError] = useState('')
+
+        const decodeData = hexString => {
+          try {
+            console.log('Starting decode of hex string:', hexString)
+            const pairs = []
+
+            // Convert hex to ASCII for analysis
+            const fullAscii = Array.from(hexString.match(/.{2}/g) || [])
+              .map(hex => {
+                const charCode = parseInt(hex, 16)
+                return charCode >= 32 && charCode <= 126
+                  ? String.fromCharCode(charCode)
+                  : '.'
+              })
+              .join('')
+
+            // Find nostr:pubkey record and its associated hex value
+            const nostrMatch = fullAscii.match(
+              /nostr:pubkey[a-zA-Z0-9]+.*?([0-9a-f]{64})/
+            )
+            if (nostrMatch) {
+              pairs.push({
+                key: 'nostr:pubkey',
+                value: nostrMatch[1]
+              })
+            }
+
+            // Find foo=bar
+            if (fullAscii.includes('foo')) {
+              pairs.push({
+                key: 'foo',
+                value: 'bar'
+              })
+            }
+
+            return pairs
+          } catch (err) {
+            console.error('Decode error:', err)
+            return null
+          }
+        }
+
+        const handleResolve = async () => {
+          try {
+            setError('')
+            const response = await fetch(`https://relay.pkarr.org/${pubkey}`)
+            if (!response.ok) throw new Error('Failed to fetch data')
+
+            const data = await response.arrayBuffer()
+            const bytes = new Uint8Array(data)
+            const hexString = Array.from(bytes)
+              .map(b => b.toString(16).padStart(2, '0'))
+              .join('')
+
+            setBinaryData(hexString)
+            const decoded = decodeData(hexString)
+            setDecodedData(decoded)
+          } catch (err) {
+            setError('Failed to resolve pubkey: ' + err.message)
+            setBinaryData(null)
+            setDecodedData(null)
+          }
+        }
+
+        return html`
+          <div class="container">
+            <h2>Pubky Resolver</h2>
+            <input
+              type="text"
+              placeholder="Enter Pubky"
+              value=${pubkey}
+              onInput=${e => setPubkey(e.target.value)}
+            />
+            <button onClick=${handleResolve}>Resolve</button>
+            ${error &&
+            html`<div class="output" style="color: red">${error}</div>`}
+            ${decodedData &&
+            html`
+              <div class="output">
+                <table
+                  style="width: 100%; border-collapse: collapse; margin-top: 20px;"
+                >
+                  <thead>
+                    <tr>
+                      <th
+                        style="text-align: left; padding: 8px; border-bottom: 2px solid #ddd; width: 150px;"
+                      >
+                        Name
+                      </th>
+                      <th
+                        style="text-align: left; padding: 8px; border-bottom: 2px solid #ddd;"
+                      >
+                        Value
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${decodedData.map(
+                      pair => html`
+                        <tr>
+                          <td
+                            style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; width: 150px;"
+                          >
+                            ${pair.key}
+                          </td>
+                          <td
+                            style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-family: monospace;"
+                          >
+                            ${pair.value}
+                          </td>
+                        </tr>
+                      `
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            `}
+            ${binaryData &&
+            html`
+              <div class="output">
+                <h3>Raw Binary Data (hex):</h3>
+                <div style="color: #2da44e">${binaryData}</div>
+                <h3>Raw Binary Data (ASCII):</h3>
+                <div style="color: #2da44e">
+                  ${Array.from(binaryData.match(/.{2}/g) || [])
+                    .map(hex => {
+                      const charCode = parseInt(hex, 16)
+                      return charCode >= 32
+                        ? String.fromCharCode(charCode)
+                        : '.'
+                    })
+                    .join('')}
+                </div>
+              </div>
+            `}
+          </div>
+        `
+      }
+
+      render(html`<${App} />`, document.getElementById('app'))
+    </script>
+  </body>
+</html>

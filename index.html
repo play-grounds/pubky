@@ -1,137 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Z32 Encoder</title>
-  <script type="module" src="https://unpkg.com/htm@3.0.4/preact/standalone.module.js"></script>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #e0eafc, #cfdef3);
-      color: #333;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 0 20px;
-    }
-    .container {
-      text-align: center;
-      padding: 40px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-      width: 100%;
-      max-width: 700px; /* Increased max width */
-      margin: 20px;
-      transition: all 0.3s ease;
-    }
-    .container:hover {
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
-      transform: translateY(-2px);
-    }
-    h2 {
-      color: #007bff;
-      font-size: 2em;
-      margin-bottom: 20px;
-    }
-    input {
-      padding: 14px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      width: 100%;
-      max-width: 600px; /* Increased input width */
-      margin: 10px 0;
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus {
-      border-color: #007bff;
-    }
-    button {
-      padding: 14px 24px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-      transition: background-color 0.3s;
-      width: 100%;
-      max-width: 200px;
-      margin-top: 15px;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    .output {
-      margin-top: 20px;
-      font-size: 1.1em;
-      color: #555;
-      word-break: break-all;
-    }
-    @media (max-width: 800px) {
-      .container {
-        max-width: 90%;
-      }
-      h2 {
-        font-size: 1.5em;
-      }
-      button {
-        padding: 12px 16px;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div id="app"></div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aesthetic App Gallery</title>
+    <script type="module">
+      import {
+        html,
+        render,
+        useState,
+        useEffect
+      } from 'https://unpkg.com/htm@3.0.4/preact/standalone.module.js'
 
-  <script type="module">
-    import { html, render, useState } from 'https://unpkg.com/htm@3.0.4/preact/standalone.module.js';
-
-    const z32Alphabet = 'ybndrfg8ejkmcpqxot1uwisza345h769';
-    
-    function hexToZ32(hex) {
-      const bits = hex.match(/.{1,4}/g).map(byte => parseInt(byte, 16).toString(2).padStart(16, '0')).join('');
-      const chunks = bits.match(/.{1,5}/g);
-      return chunks.map(chunk => z32Alphabet[parseInt(chunk.padEnd(5, '0'), 2)]).join('');
-    }
-
-    const App = () => {
-      const [hexKey, setHexKey] = useState('');
-      const [z32Id, setZ32Id] = useState('');
-
-      const handleEncode = () => {
-        if (hexKey.length === 64 && /^[a-fA-F0-9]+$/.test(hexKey)) {
-          setZ32Id(hexToZ32(hexKey));
-        } else {
-          alert('Please enter a valid 64-character hex key.');
+      const apps = [
+        {
+          name: 'Z32',
+          description: 'Z32 encoder',
+          url: './z32.html' // Add actual URL here
+        },
+        {
+          name: 'Resolver',
+          description: 'Pubky resolver',
+          url: './resolver.html' // Add actual URL here
         }
-      };
+      ]
 
-      return html`
-        <div class="container">
-          <h2>Z32 Encoder</h2>
-          <input
-            type="text"
-            placeholder="Enter 64-char hex key"
-            value=${hexKey}
-            onInput=${e => setHexKey(e.target.value)}
-          />
-          <button onClick=${handleEncode}>Encode to Z32</button>
-          ${z32Id && html`<div class="output">Z32 Identifier: ${z32Id}</div>`}
-        </div>
-      `;
-    };
+      function App() {
+        const [hoveredApp, setHoveredApp] = useState(null)
 
-    render(html`<${App} />`, document.getElementById('app'));
-  </script>
-</body>
+        useEffect(() => {
+          document.body.style.backgroundColor = '#f0f4f8'
+        }, [])
+
+        return html`
+          <div class="container">
+            <h1>Aesthetic App Gallery</h1>
+            <div class="app-grid">
+              ${apps.map(
+                (app, index) => html`
+                  <a
+                    href=${app.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="app-card ${hoveredApp === index ? 'hovered' : ''}"
+                    onMouseEnter=${() => setHoveredApp(index)}
+                    onMouseLeave=${() => setHoveredApp(null)}
+                    key=${index}
+                  >
+                    <h2>${app.name}</h2>
+                    <p>${app.description}</p>
+                  </a>
+                `
+              )}
+            </div>
+          </div>
+        `
+      }
+
+      render(html`<${App} />`, document.body)
+    </script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: #2c3e50;
+        font-size: 2.5rem;
+        font-weight: 300;
+      }
+
+      .app-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+      }
+
+      .app-card {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-decoration: none;
+        color: #333;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .app-card:hover,
+      .app-card.hovered {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .app-card h2 {
+        margin-bottom: 0.5rem;
+        color: #3498db;
+        font-size: 1.25rem;
+      }
+
+      .app-card p {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 1rem;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+
+        .app-grid {
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The app will be rendered here -->
+  </body>
 </html>
