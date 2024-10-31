@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Ed25519 Key Converter</title>
+    <script
+      type="module"
+      src="https://unpkg.com/htm@3.0.4/preact/standalone.module.js"
+    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/tweetnacl@1.0.3/nacl.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-sha3@0.8.0/build/sha3.min.js"></script>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      import {
+        html,
+        render,
+        useState
+      } from 'https://unpkg.com/htm@3.0.4/preact/standalone.module.js'
+
+      // Base32 encoding function
+      const base32Encode = data => {
+        const alphabet = 'abcdefghijklmnopqrstuvwxyz234567'
+        let bits = 0
+        let value = 0
+        let output = ''
+
+        for (let i = 0; i < data.length; i++) {
+          value = (value << 8) | data[i]
+          bits += 8
+
+          while (bits >= 5) {
+            output += alphabet[(value >>> (bits - 5)) & 31]
+            bits -= 5
+          }
+        }
+
+        if (bits > 0) {
+          output += alphabet[(value << (5 - bits)) & 31]
+        }
+
+        return output
+      }
+
+      // Z32 encoding function (new)
+      const z32Encode = data => {
+        const alphabet = 'ybndrfg8ejkmcpqxot1uwisza345h769'
+        let bits = 0
+        let value = 0
+        let output = ''
+
+        for (let i = 0; i < data.length; i++) {
+          value = (value << 8) | data[i]
+          bits += 8
+
+          while (bits >= 5) {
+            output += alphabet[(value >>> (bits - 5)) & 31]
+            bits -= 5
+          }
+        }
+
+        if (bits > 0) {
+          output += alphabet[(value << (5 - bits)) & 31]
+        }
+
+        return output
+      }
+
+      // Add z32 decode function
+      const z32Decode = str => {
+        const alphabet = 'ybndrfg8ejkmcpqxot1uwisza345h769'
+        let bits = 0
+        let value = 0
+        let output = new Uint8Array(32)
+        let outputIndex = 0
+
+        for (let i = 0; i < str.length; i++) {
+          const char = str[i].toLowerCase()
+          const charValue = alphabet.indexOf(char)
+          if (charValue === -1) continue
+
+          value = (value << 5) | charValue
+          bits += 5
+
+          while (bits >= 8 && outputIndex < 32) {
+            output[outputIndex++] = (value >>> (bits - 8)) & 255
+            bits -= 8
+          }
+        }
+
+        return output
+      }
+
+      function App() {
+        const [privateKey, setPrivateKey] = useState('')
+        const [publicKey, setPublicKey] = useState('')
+        const [onionAddress, setOnionAddress] = useState('')
+        const [pubky, setPubky] = useState('')
+
+        const handlePrivateKeyChange = e => {
+          const newPrivateKey = e.target.value
+          setPrivateKey(newPrivateKey)
+
+          try {
+            const privateKeyBytes = hexToBytes(newPrivateKey.trim())
+
+            if (privateKeyBytes.length !== 32) {
+              setPublicKey('')
+              setOnionAddress('')
+              setPubky('') // Clear pubky on error
+              return
+            }
+
+            // Generate key pair from the private seed
+            const keyPair = nacl.sign.keyPair.fromSeed(privateKeyBytes)
+            const publicKeyHex = bytesToHex(keyPair.publicKey)
+            setPublicKey(publicKeyHex)
+
+            // Add z32 encoding of public key
+            const pubkyZ32 = z32Encode(keyPair.publicKey)
+            setPubky(pubkyZ32)
+
+            // Compute .onion address
+            const version = new Uint8Array([3])
+            const checksum = calculateChecksum(version, keyPair.publicKey)
+            const onionData = new Uint8Array(35)
+            onionData.set(version, 0)
+            onionData.set(keyPair.publicKey, 1)
+            onionData.set(checksum, 33)
+
+            const address = base32Encode(onionData) + '.onion'
+            setOnionAddress(address)
+          } catch (error) {
+            setPublicKey('')
+            setOnionAddress('')
+            setPubky('') // Clear pubky on error
+            console.error(error)
+          }
+        }
+
+        const handlePublicKeyChange = e => {
+          const newPublicKey = e.target.value
+          setPublicKey(newPublicKey)
+          setPrivateKey('') // Clear private key when public key is edited
+
+          try {
+            const publicKeyBytes = hexToBytes(newPublicKey.trim())
+
+            if (publicKeyBytes.length !== 32) {
+              setOnionAddress('')
+              setPubky('')
+              return
+            }
+
+            // Add z32 encoding directly from the public key bytes
+            const pubkyZ32 = z32Encode(publicKeyBytes)
+            setPubky(pubkyZ32)
+
+            // Compute .onion address directly from the public key bytes
+            const version = new Uint8Array([3])
+            const checksum = calculateChecksum(version, publicKeyBytes)
+            const onionData = new Uint8Array(35)
+            onionData.set(version, 0)
+            onionData.set(publicKeyBytes, 1)
+            onionData.set(checksum, 33)
+
+            const address = base32Encode(onionData) + '.onion'
+            setOnionAddress(address)
+          } catch (error) {
+            setOnionAddress('')
+            setPubky('')
+            console.error(error)
+          }
+        }
+
+        const handlePubkyChange = e => {
+          const newPubky = e.target.value
+          setPubky(newPubky)
+          setPrivateKey('') // Clear private key when pubky is edited
+
+          try {
+            const publicKeyBytes = z32Decode(newPubky.trim())
+
+            if (publicKeyBytes.length !== 32) {
+              setPublicKey('')
+              setOnionAddress('')
+              return
+            }
+
+            // Convert to hex public key
+            const publicKeyHex = bytesToHex(publicKeyBytes)
+            setPublicKey(publicKeyHex)
+
+            // Compute .onion address
+            const version = new Uint8Array([3])
+            const checksum = calculateChecksum(version, publicKeyBytes)
+            const onionData = new Uint8Array(35)
+            onionData.set(version, 0)
+            onionData.set(publicKeyBytes, 1)
+            onionData.set(checksum, 33)
+
+            const address = base32Encode(onionData) + '.onion'
+            setOnionAddress(address)
+          } catch (error) {
+            setPublicKey('')
+            setOnionAddress('')
+            console.error(error)
+          }
+        }
+
+        const hexToBytes = hex => {
+          const cleanHex = hex.replace(/[^0-9a-fA-F]/g, '')
+          if (cleanHex.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(cleanHex)) {
+            throw new Error('Invalid hex format')
+          }
+
+          const bytes = new Uint8Array(cleanHex.length / 2)
+          for (let i = 0; i < cleanHex.length; i += 2) {
+            bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16)
+          }
+          return bytes
+        }
+
+        const bytesToHex = bytes => {
+          return Array.from(bytes)
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('')
+        }
+
+        const calculateChecksum = (version, publicKey) => {
+          const data = new Uint8Array(33)
+          data.set(version, 0)
+          data.set(publicKey, 1)
+          const sha3Hash = new Uint8Array(sha3_256.arrayBuffer(data))
+          return sha3Hash.slice(0, 2)
+        }
+
+        return html`
+          <div
+            style="font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; max-width: 800px; margin: 3rem auto; padding: 2rem; background: white; box-shadow: 0 2px 15px rgba(0,0,0,0.1); border-radius: 12px;"
+          >
+            <h1
+              style="color: #2d3748; margin-bottom: 2rem; font-size: 2rem; text-align: center;"
+            >
+              Ed25519 Key Converter
+            </h1>
+            <div style="margin-bottom: 1.5rem;">
+              <label style="font-weight: 500; color: #4a5568;"
+                >Private Key (Hexadecimal):</label
+              ><br />
+              <textarea
+                rows="4"
+                cols="70"
+                value=${privateKey}
+                onInput=${handlePrivateKeyChange}
+                style="width: 100%; margin-top: 0.5rem; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-family: monospace; font-size: 0.9rem; resize: vertical; transition: border-color 0.2s;"
+              ></textarea>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+              <label style="font-weight: 500; color: #4a5568;"
+                >Public Key (Hexadecimal):</label
+              ><br />
+              <textarea
+                rows="4"
+                cols="70"
+                value=${publicKey}
+                onInput=${handlePublicKeyChange}
+                style="width: 100%; margin-top: 0.5rem; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-family: monospace; font-size: 0.9rem; resize: vertical; transition: border-color 0.2s;"
+              ></textarea>
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+              <label style="font-weight: 500; color: #4a5568;"
+                >Pubky (Z32):</label
+              ><br />
+              <textarea
+                rows="2"
+                cols="70"
+                value=${pubky}
+                onInput=${handlePubkyChange}
+                style="width: 100%; margin-top: 0.5rem; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; font-family: monospace; font-size: 0.9rem; resize: vertical; transition: border-color 0.2s;"
+              ></textarea>
+            </div>
+            <div>
+              <label style="font-weight: 500; color: #4a5568;"
+                >Onion Address:</label
+              ><br />
+              <textarea
+                rows="2"
+                cols="70"
+                value=${onionAddress}
+                readonly
+                style="width: 100%; margin-top: 0.5rem; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-family: monospace; font-size: 0.9rem; resize: vertical;"
+              ></textarea>
+            </div>
+          </div>
+        `
+      }
+
+      render(html`<${App} />`, document.getElementById('app'))
+    </script>
+  </body>
+</html>
